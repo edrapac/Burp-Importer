@@ -30,3 +30,16 @@ HTTP_VERSION = request['httpVersion']
 HEADER_BLOCK = ''
 for header in request['headers']:
 	HEADER_BLOCK+=header['name']+': '+header['value']+'\n'
+COOKIE_BLOCK = ''
+for cookie in request['cookies'][:-1]:
+	COOKIE_BLOCK+= 'Cookie: '+cookie['name']+'='+cookie['value']+'; '
+COOKIE_BLOCK+= request['cookies'][-1]['name']+'='+request['cookies'][-1]['value']+'\n'
+
+if METHOD == 'POST':
+	POST_DATA = request['postData']['text']
+else:
+	COOKIE_BLOCK+='\n'
+'''
+comment this out or remove, for tesint purposes only
+'''
+print("%s %s%s %s\n%s%s" %(METHOD,URL,QUERY_STRING_OPT,HTTP_VERSION,HEADER_BLOCK,COOKIE_BLOCK))
