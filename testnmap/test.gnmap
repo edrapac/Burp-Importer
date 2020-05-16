@@ -1,0 +1,4 @@
+# Nmap 7.80 scan initiated Fri May 15 20:07:42 2020 as: "C:\\Program Files (x86)\\Nmap\\nmap.exe" -F -Pn -oA test 10.0.1.1
+Host: 10.0.1.1 ()	Status: Up
+Host: 10.0.1.1 ()	Ports: 22/open/tcp//ssh///, 53/open/tcp//domain///, 80/open/tcp//http///, 443/open/tcp//https///	Ignored State: closed (96)
+# Nmap done at Fri May 15 20:07:46 2020 -- 1 IP address (1 host up) scanned in 5.12 seconds
