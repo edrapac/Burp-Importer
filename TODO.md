@@ -8,3 +8,9 @@
 * Instantiate IHttpRequest and IHttpResponse objects and use the setRequest and setResponse methods to set the request and response respectively 
 * Populate site map with forged Request and Response objects 
 * ???Profit?
+
+
+## Methods that need to be modified 
+* loadFile - add correct file handling for .har files, currently no file handling available
+* def har - similar to the nmap or nessus methods, should be the parser functionality that you have already built in  
+* connect - addToSiteMap will need to include functionality for har parsed file

@@ -29,6 +29,9 @@ import java.lang as lang
 import os
 import re
 import xml.dom.minidom
+from har_parse import Request
+import json
+#from io import open
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
@@ -247,7 +250,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlList.setListData(currentList)
         self.addUrlField.setText("New URL...")
 
-    def getUrlList(self):
+    def getUrlList(self): # gets all the URL's from whatever methods loaded them
         model = self.urlList.getModel()
         currentList = []
    
@@ -285,7 +288,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
         for url in urlList:
             if self.urlRegex.match(url):
-                self.connect(url)
+                self.connect(url) #where the connect call is made
             else:
                 self.badUrlList.append(url)
         
@@ -384,6 +387,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.nessus(loadedFile)
             elif fileExtension == '.txt':
                 self.plaintext(loadedFile)
+            elif fileExtension == '.har':
+                self.har(loadedFile)
             else:
                 print '\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename
                 self.logArea.append('\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename)
@@ -429,6 +434,17 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                                 url = 'http://' + hostIP + ':' + port + '/'
                     urlList.append(url)
         self.urlList.setListData(urlList)
+    def har(self, loadedFile):
+        urlList = self.getUrlList()
+        json_object = json.load(loadedFile)
+        entries = json_object['log']['entries']
+        for i in range(len(entries)):
+            newRequest = Request(entries[i]['request'])
+            newRequest.parse_entry()
+            url = newRequest.full_url
+            urlList.append(url)
+        self.urlList.setListData(urlList)
+
 
     def locationHeaderConvert(self, locationHeader, port, host, pluginOutput):
         url = ""

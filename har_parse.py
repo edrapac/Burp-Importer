@@ -1,5 +1,7 @@
 import json
-from urllib.parse import urlparse
+from urlparse import urlparse
+
+# from urllib.parse import urlparse Python3
 
 
 
@@ -8,13 +10,14 @@ from urllib.parse import urlparse
 # request object
 class Request:
 	
-	def __init__(self, request_entry,method='',url='',query_string='',http_ver='',header_blk='',cookie_blk='',post_dat=''):
+	def __init__(self, request_entry,method='',url='',query_string='',http_ver='',header_blk='',cookie_blk='',post_dat='',full_url=''):
 		self.request_entry = request_entry
 
 	#parser
 	def parse_entry(self): #setter for all attributes
 		self.method = self.request_entry['method']
 		self.url = urlparse(self.request_entry['url']).path
+		self.full_url = self.request_entry['url']
 		self.query_string = urlparse(self.request_entry['url']).query
 		self.http_ver = self.request_entry['httpVersion']
 		self.header_blk = ''
@@ -54,14 +57,14 @@ class Response:
 		#print("%s %s\n%s%s" %(RESPONSE_HTTP_VERSION, STATUS_CODE,RESPONSE_HEADER_BLOCK,RESPONSE_BODY))
 '''
 # FOR OPENING AND PARSING THE .HAR FILE DIRECTLY FROM THIS CLASS FILE, USE THE BELOW CODE 
-file = open("har_full.har",encoding="utf8")
+file = open("developer.twitter.com.har",encoding="utf8")
 json_object = json.load(file)
 entries = json_object['log']['entries']  #each entry contains a request/response pair
 for i in range(len(entries)):
 	newRequest = Request(entries[i]['request'])
 	newRequest.parse_entry()
-	print(newRequest.method,newRequest.url,newRequest.query_string)
-	newResponse = Response(entries[i]['response'])
-	newResponse.parse_entry()
-	print(newResponse.response_http_ver,newResponse.response_stat,newResponse.response_head)
+	print(newRequest.full_url)
+	#newResponse = Response(entries[i]['response'])
+	#newResponse.parse_entry()
+	#print(newResponse.response_http_ver,newResponse.response_stat,newResponse.response_head)
 '''
