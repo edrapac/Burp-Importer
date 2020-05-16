@@ -318,6 +318,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             try:
                 javaURL = URL(url)
                 newRequest = self._helpers.buildHttpRequest(javaURL)
+                newRequest= self._helpers.toggleRequestMethod(newRequest) # for post requests
                 requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
 
                 # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
