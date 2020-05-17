@@ -1,7 +1,7 @@
 import json
 from urlparse import urlparse
 
-# from urllib.parse import urlparse #Python3
+# from urllib.parse import urlparse Python3
 
 
 
@@ -10,7 +10,7 @@ from urlparse import urlparse
 # request object
 class Request:
 	
-	def __init__(self, request_entry,method='',url='',query_string='',http_ver='',header_blk='',cookie_blk='',post_dat='',full_url='',cookie_list=[]):
+	def __init__(self, request_entry,method='',url='',query_string='',http_ver='',header_blk='',cookie_blk='',post_dat='',full_url=''):
 		self.request_entry = request_entry
 
 	#parser
@@ -32,7 +32,8 @@ class Request:
 			self.post_dat = self.request_entry['postData']['text']
 		else:
 			self.cookie_blk+='\n'
-		# print(self.cookie_blk)
+	
+
 		# uncomment for debugging
 		#print("%s %s%s %s\n%s%s" %(METHOD,URL,QUERY_STRING_OPT,HTTP_VERSION,HEADER_BLOCK,COOKIE_BLOCK))
 		
@@ -62,10 +63,7 @@ entries = json_object['log']['entries']  #each entry contains a request/response
 for i in range(len(entries)):
 	newRequest = Request(entries[i]['request'])
 	newRequest.parse_entry()
-	print(newRequest.request_entry['cookies'])
-	#if len(newRequest.request_entry['cookies'])>0:
-		#for i in range(len(newRequest.request_entry['cookies'])):
-			#print(newRequest.request_entry['cookies'][i].items())
+	print(newRequest.full_url)
 	#newResponse = Response(entries[i]['response'])
 	#newResponse.parse_entry()
 	#print(newResponse.response_http_ver,newResponse.response_stat,newResponse.response_head)

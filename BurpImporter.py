@@ -35,7 +35,7 @@ import json
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
-    def	registerExtenderCallbacks(self, callbacks):
+    def registerExtenderCallbacks(self, callbacks):
         
         print "Loading Burp Importer Extension..."
 
@@ -80,7 +80,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.clearButton = swing.JButton("Clear", actionPerformed=self.clear)
         self.urlListModel = swing.DefaultListModel()
         self.urlList = swing.JList(self.urlListModel)
-        self.cookieList = {"requests":[]}
         self.urlListPane = swing.JScrollPane(self.urlList)
         self.addButton = swing.JButton("Add", actionPerformed=self.addURL)
         self.runLabel = swing.JLabel("<html>Click the <b>RUN</b> button to attempt a connection to each URL in the URL List.  Successful connections will be added to Burp's sitemap.</html>")
@@ -287,11 +286,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlRegex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
         urlList = filter(None, self.getUrlList())
 
-        for url in self.cookieList['requests']:
-            if self.urlRegex.match(url['url']):
-                self.get(url['url'],url['cookies']) #where the connect call is made
+        for url in urlList:
+            if self.urlRegex.match(url):
+                self.connect(url) #where the connect call is made
             else:
-                self.badUrlList.append(url['url']+url['cookies'])
+                self.badUrlList.append(url)
         
         currentTime = str(datetime.now()).split('.')[0]
 
@@ -314,56 +313,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.logArea.append('\t' + badUrl + '\n')
         print '\n'
 
-    def get(self, url, cookies):
-        if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url): # matches first to see if there is a port in the URL https://xyz:443.com then to see if the URL is valid
-            try:
-                cookie_list_final = [] # list that will hold all of the cookies for the request
-                javaURL = URL(url) # create URL object
-
-                for entry in cookies: # iterate over the cookies
-                    newcookie = self._helpers.buildParameter(entry['name'],entry['value'],PARAM_COOKIE) #build cookie param 
-                    cookie_list_final.append(newcookie)
-                
-                newRequest = self._helpers.buildHttpRequest(javaURL) # build the request then append all the needed cookies to it
-                for cookie in cookie_list_final:
-                    self._helpers.addParameter(newRequest,cookie)
-
-                requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
-
-                # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
-                response = requestResponse.getResponse()
-                if response:
-                    requestInfo = self._helpers.analyzeResponse(response)
-                    responseHeader = requestInfo.getHeaders()
-                    
-                    if ('301' in responseHeader[0] or '302' in responseHeader[0]) and self.redirectsCheckbox.isSelected():
-                        self.redirectCounter += 1
-                        for headerLine in responseHeader:
-                            if 'Location: ' in headerLine or 'location: ' in headerLine:
-                                url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
-                                self.get(url)
-                    
-                    self.goodUrlList.append(url)
-                    self._callbacks.addToSiteMap(requestResponse)
-                else:
-                    self.badUrlList.append(url)
-            except:
-                self.badUrlList.append(url)
-        else:
-            if 'http://' in url:
-                fixedUrl = self.addPort(url, '80')
-                self.get(fixedUrl, cookies)
-            elif 'https://' in url:
-                fixedUrl = self.addPort(url, '443')
-                self.get(fixedUrl, cookies)
-            else:
-                self.badUrlList.append(fixedUrl)
-    def post(self, url):
+    def connect(self, url):
         if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
             try:
                 javaURL = URL(url)
                 newRequest = self._helpers.buildHttpRequest(javaURL)
-                newRequest= self._helpers.toggleRequestMethod(newRequest) # for post requests
                 requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
 
                 # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
@@ -377,7 +331,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                         for headerLine in responseHeader:
                             if 'Location: ' in headerLine or 'location: ' in headerLine:
                                 url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
-                                self.post(url)
+                                self.connect(url)
                     
                     self.goodUrlList.append(url)
                     self._callbacks.addToSiteMap(requestResponse)
@@ -388,10 +342,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         else:
             if 'http://' in url:
                 fixedUrl = self.addPort(url, '80')
-                self.post(fixedUrl)
+                self.connect(fixedUrl)
             elif 'https://' in url:
                 fixedUrl = self.addPort(url, '443')
-                self.post(fixedUrl)
+                self.connect(fixedUrl)
             else:
                 self.badUrlList.append(url)
 
@@ -436,8 +390,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             elif fileExtension == '.har':
                 self.har(loadedFile)
             else:
-                print '\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt, .har).' % filename
-                self.logArea.append('\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt, .har).' % filename)
+                print '\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename
+                self.logArea.append('\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename)
 
     def nmap(self, loadedFile):
         urlList = self.getUrlList()
@@ -489,8 +443,6 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             newRequest.parse_entry()
             url = newRequest.full_url
             urlList.append(url)
-            newdict = {'url':url,'cookies':newRequest.request_entry['cookies']}
-            self.cookieList['requests'].append(newdict) 
         self.urlList.setListData(urlList)
 
 
