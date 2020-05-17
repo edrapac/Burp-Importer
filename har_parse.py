@@ -1,7 +1,7 @@
 import json
 from urlparse import urlparse
 
-# from urllib.parse import urlparse Python3
+# from urllib.parse import urlparse #Python3
 
 
 
@@ -34,8 +34,7 @@ class Request:
 			self.cookie_blk+='\n'
 	
 
-		# uncomment for debugging
-		#print("%s %s%s %s\n%s%s" %(METHOD,URL,QUERY_STRING_OPT,HTTP_VERSION,HEADER_BLOCK,COOKIE_BLOCK))
+		
 		
 
 # response object
@@ -52,19 +51,3 @@ class Response:
 			self.response_head+=header['name'].capitalize()+': '+header['value']+'\n'
 		self.response_head+='\n'
 		self.response_body = self.response_entry['content']['text'] if ('text' in self.response_entry['content'].keys()) else '' #302 and other status codes dont include a response body in .har files 
-		
-		# uncomment for debugging
-		#print("%s %s\n%s%s" %(RESPONSE_HTTP_VERSION, STATUS_CODE,RESPONSE_HEADER_BLOCK,RESPONSE_BODY))
-'''
-# FOR OPENING AND PARSING THE .HAR FILE DIRECTLY FROM THIS CLASS FILE, USE THE BELOW CODE 
-file = open("developer.twitter.com.har",encoding="utf8")
-json_object = json.load(file)
-entries = json_object['log']['entries']  #each entry contains a request/response pair
-for i in range(len(entries)):
-	newRequest = Request(entries[i]['request'])
-	newRequest.parse_entry()
-	print(newRequest.full_url)
-	#newResponse = Response(entries[i]['response'])
-	#newResponse.parse_entry()
-	#print(newResponse.response_http_ver,newResponse.response_stat,newResponse.response_head)
-'''

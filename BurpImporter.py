@@ -31,7 +31,7 @@ import re
 import xml.dom.minidom
 from har_parse import Request
 import json
-#from io import open
+
 
 class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
 
@@ -72,13 +72,12 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlDescLabel.setFont(Font("Tahoma", 0, 12))
         self.urlDescLabel2 = swing.JLabel("Example: https://127.0.0.1:443/index. Port is optional, 80 or 443 will be assumed.")
         self.urlDescLabel2.setFont(Font("Tahoma", 0, 12))
-        self.urlDescLabel2 = swing.JLabel("PLEASE NOTE: connections to URLs in .har files will NOT be attempted.")
-        self.urlDescLabel2.setFont(Font("Tahoma", 0, 12))
         self.pasteButton = swing.JButton("Paste", actionPerformed=self.paste)
         self.loadButton = swing.JButton("Copy List", actionPerformed=self.setClipboardText)
         self.removeButton = swing.JButton("Remove", actionPerformed=self.remove)
         self.clearButton = swing.JButton("Clear", actionPerformed=self.clear)
         self.urlListModel = swing.DefaultListModel()
+        self.urlDictArray = []
         self.urlList = swing.JList(self.urlListModel)
         self.urlListPane = swing.JScrollPane(self.urlList)
         self.addButton = swing.JButton("Add", actionPerformed=self.addURL)
@@ -286,9 +285,12 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlRegex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
         urlList = filter(None, self.getUrlList())
 
-        for url in urlList:
-            if self.urlRegex.match(url):
-                self.connect(url) #where the connect call is made
+        for dictionary in self.urlDictArray: #need to differentiate between gets or posts
+            if self.urlRegex.match(dictionary['url']):
+                if dictionary['method']=='GET':
+                    self.get(dictionary['url']) #where the connect call is made
+                if dictionary['method']=='POST':
+                    self.post(dictionary['url'])
             else:
                 self.badUrlList.append(url)
         
@@ -313,7 +315,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.logArea.append('\t' + badUrl + '\n')
         print '\n'
 
-    def connect(self, url):
+    def get(self, url):
         if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
             try:
                 javaURL = URL(url)
@@ -331,7 +333,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                         for headerLine in responseHeader:
                             if 'Location: ' in headerLine or 'location: ' in headerLine:
                                 url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
-                                self.connect(url)
+                                self.get(url)
                     
                     self.goodUrlList.append(url)
                     self._callbacks.addToSiteMap(requestResponse)
@@ -342,10 +344,46 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         else:
             if 'http://' in url:
                 fixedUrl = self.addPort(url, '80')
-                self.connect(fixedUrl)
+                self.get(fixedUrl)
             elif 'https://' in url:
                 fixedUrl = self.addPort(url, '443')
-                self.connect(fixedUrl)
+                self.get(fixedUrl)
+            else:
+                self.badUrlList.append(url)
+    def post(self, url):
+        if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
+            try:
+                javaURL = URL(url)
+                newRequest = self._helpers.buildHttpRequest(javaURL)
+                newRequest= self._helpers.toggleRequestMethod(newRequest) # for post requests
+                requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
+
+                # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
+                response = requestResponse.getResponse()
+                if response:
+                    requestInfo = self._helpers.analyzeResponse(response)
+                    responseHeader = requestInfo.getHeaders()
+                    
+                    if ('301' in responseHeader[0] or '302' in responseHeader[0]) and self.redirectsCheckbox.isSelected():
+                        self.redirectCounter += 1
+                        for headerLine in responseHeader:
+                            if 'Location: ' in headerLine or 'location: ' in headerLine:
+                                url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
+                                self.post(url)
+                    
+                    self.goodUrlList.append(url)
+                    self._callbacks.addToSiteMap(requestResponse)
+                else:
+                    self.badUrlList.append(url)
+            except:
+                self.badUrlList.append(url)
+        else:
+            if 'http://' in url:
+                fixedUrl = self.addPort(url, '80')
+                self.post(fixedUrl)
+            elif 'https://' in url:
+                fixedUrl = self.addPort(url, '443')
+                self.post(fixedUrl)
             else:
                 self.badUrlList.append(url)
 
@@ -442,7 +480,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             newRequest = Request(entries[i]['request'])
             newRequest.parse_entry()
             url = newRequest.full_url
+            method = newRequest.method
             urlList.append(url)
+            method_dict = {'url':url,'method':method}
+            self.urlDictArray.append(method_dict)
         self.urlList.setListData(urlList)
 
 
