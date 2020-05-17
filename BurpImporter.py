@@ -80,6 +80,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.clearButton = swing.JButton("Clear", actionPerformed=self.clear)
         self.urlListModel = swing.DefaultListModel()
         self.urlList = swing.JList(self.urlListModel)
+        self.cookieList = {"requests":[]}
         self.urlListPane = swing.JScrollPane(self.urlList)
         self.addButton = swing.JButton("Add", actionPerformed=self.addURL)
         self.runLabel = swing.JLabel("<html>Click the <b>RUN</b> button to attempt a connection to each URL in the URL List.  Successful connections will be added to Burp's sitemap.</html>")
@@ -286,11 +287,11 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         self.urlRegex = re.compile('http[s]?://(?:[a-zA-Z]|[0-9]|[$-_@.&+]|[!*\(\),]|(?:%[0-9a-fA-F][0-9a-fA-F]))+')
         urlList = filter(None, self.getUrlList())
 
-        for url in urlList:
-            if self.urlRegex.match(url):
-                self.connect(url) #where the connect call is made
+        for url in self.cookieList['requests']:
+            if self.urlRegex.match(url['url']):
+                self.get(url['url'],url['cookies']) #where the connect call is made
             else:
-                self.badUrlList.append(url)
+                self.badUrlList.append(url['url'])
         
         currentTime = str(datetime.now()).split('.')[0]
 
@@ -313,7 +314,49 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 self.logArea.append('\t' + badUrl + '\n')
         print '\n'
 
-    def connect(self, url):
+    def get(self, url, cookies):
+        if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
+            try:
+                cookie_list_final = []
+                javaURL = URL(url)
+
+                for entry in cookies:
+                    newcookie = self._helpers.buildParameter(name=entry['name'],value=entry['value'],type=2) #PARAM_COOKIE is of type 2 
+                    cookie_list_final.append(newcookie)
+                newRequest = self._helpers.buildHttpRequest(javaURL)
+                for i in cookie_list_final:
+                    self._helpers.addParameter(newRequest,i)
+                requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
+
+                # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
+                response = requestResponse.getResponse()
+                if response:
+                    requestInfo = self._helpers.analyzeResponse(response)
+                    responseHeader = requestInfo.getHeaders()
+                    
+                    if ('301' in responseHeader[0] or '302' in responseHeader[0]) and self.redirectsCheckbox.isSelected():
+                        self.redirectCounter += 1
+                        for headerLine in responseHeader:
+                            if 'Location: ' in headerLine or 'location: ' in headerLine:
+                                url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
+                                self.get(url)
+                    
+                    self.goodUrlList.append(url)
+                    self._callbacks.addToSiteMap(requestResponse)
+                else:
+                    self.badUrlList.append(url)
+            except:
+                self.badUrlList.append(url)
+        else:
+            if 'http://' in url:
+                fixedUrl = self.addPort(url, '80')
+                self.get(fixedUrl, cookies)
+            elif 'https://' in url:
+                fixedUrl = self.addPort(url, '443')
+                self.get(fixedUrl, cookies)
+            else:
+                self.badUrlList.append(cookies)
+    def post(self, url):
         if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
             try:
                 javaURL = URL(url)
@@ -332,7 +375,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                         for headerLine in responseHeader:
                             if 'Location: ' in headerLine or 'location: ' in headerLine:
                                 url = self.locationHeaderConvert(str(headerLine.split(' ')[1]), str(javaURL.getPort()), str(javaURL.getHost()), '')
-                                self.connect(url)
+                                self.post(url)
                     
                     self.goodUrlList.append(url)
                     self._callbacks.addToSiteMap(requestResponse)
@@ -343,10 +386,10 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         else:
             if 'http://' in url:
                 fixedUrl = self.addPort(url, '80')
-                self.connect(fixedUrl)
+                self.post(fixedUrl)
             elif 'https://' in url:
                 fixedUrl = self.addPort(url, '443')
-                self.connect(fixedUrl)
+                self.post(fixedUrl)
             else:
                 self.badUrlList.append(url)
 
@@ -391,8 +434,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             elif fileExtension == '.har':
                 self.har(loadedFile)
             else:
-                print '\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename
-                self.logArea.append('\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt).' % filename)
+                print '\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt, .har).' % filename
+                self.logArea.append('\nFile %s was read but does not have the correct extension (.gnmap, .nessus, .txt, .har).' % filename)
 
     def nmap(self, loadedFile):
         urlList = self.getUrlList()
@@ -444,6 +487,8 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             newRequest.parse_entry()
             url = newRequest.full_url
             urlList.append(url)
+            newdict = {'url':url,'cookies':newRequest.request_entry['cookies']}
+            self.cookieList['requests'].append(newdict) 
         self.urlList.setListData(urlList)
 
 
