@@ -291,7 +291,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
             if self.urlRegex.match(url['url']):
                 self.get(url['url'],url['cookies']) #where the connect call is made
             else:
-                self.badUrlList.append(url['url'])
+                self.badUrlList.append(url['url']+url['cookies'])
         
         currentTime = str(datetime.now()).split('.')[0]
 
@@ -315,17 +315,19 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
         print '\n'
 
     def get(self, url, cookies):
-        if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
+        if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url): # matches first to see if there is a port in the URL https://xyz:443.com then to see if the URL is valid
             try:
-                cookie_list_final = []
-                javaURL = URL(url)
+                cookie_list_final = [] # list that will hold all of the cookies for the request
+                javaURL = URL(url) # create URL object
 
-                for entry in cookies:
-                    newcookie = self._helpers.buildParameter(name=entry['name'],value=entry['value'],type=2) #PARAM_COOKIE is of type 2 
+                for entry in cookies: # iterate over the cookies
+                    newcookie = self._helpers.buildParameter(entry['name'],entry['value'],PARAM_COOKIE) #build cookie param 
                     cookie_list_final.append(newcookie)
-                newRequest = self._helpers.buildHttpRequest(javaURL)
-                for i in cookie_list_final:
-                    self._helpers.addParameter(newRequest,i)
+                
+                newRequest = self._helpers.buildHttpRequest(javaURL) # build the request then append all the needed cookies to it
+                for cookie in cookie_list_final:
+                    self._helpers.addParameter(newRequest,cookie)
+
                 requestResponse = self._callbacks.makeHttpRequest(self._helpers.buildHttpService(str(javaURL.getHost()), javaURL.getPort(), str(javaURL.getProtocol())), newRequest)
 
                 # Follow redirects if a 301 or 302 response is received. As of Oct 9 2014 the API is not capable of this: http://forum.portswigger.net/thread/1504/ask-burp-follow-redirections-extension
@@ -355,7 +357,7 @@ class BurpExtender(IBurpExtender, ITab, IExtensionStateListener):
                 fixedUrl = self.addPort(url, '443')
                 self.get(fixedUrl, cookies)
             else:
-                self.badUrlList.append(cookies)
+                self.badUrlList.append(fixedUrl)
     def post(self, url):
         if re.findall('(?:\:\d{2,5})', url) and self.urlRegex.match(url):
             try:
